@@ -145,6 +145,9 @@ class BudgetConfig(BaseModel):
     #                    seed are the harness's own floor and do not count
     #   max_tokens       tokens its coding agent calls consumed, all kinds summed
     max_evaluations: int = 0
+    # Program proposals, including pending, failed, unchanged and duplicate ones.
+    # Baseline/seed floors and parameter-only tune trials are excluded.
+    max_proposals: int = 0
     max_tokens: int = 0
     # patience: end the search (done) after this many finished attempts in a
     # row without a new best — a plateau the climber has stopped climbing off

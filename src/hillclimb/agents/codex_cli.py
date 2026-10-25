@@ -188,7 +188,7 @@ def native_model(model: str, auth: str = "subscription") -> str | None:
         return model
     if claude_model(model) or model == CODEX_DEFAULT_LABEL:
         return None
-    return model
+    return model.split("#",1)[0]
 
 
 class _CodexStreamReader(threading.Thread):
@@ -317,6 +317,25 @@ class _CodexStreamReader(threading.Thread):
 NO_INTERNET = ["-c", 'web_search="disabled"', "-c", "sandbox_workspace_write.network_access=false"]
 
 
+def permission_args(request: AgentRequest) -> list[str]:
+    """Map the host's evidence boundary into native Codex command permissions.
+
+    Requires Codex permission profiles (0.138+); unsupported profiles fail closed.
+    The model-provider connection remains outside command network permissions.
+    """
+    import sys
+    policy=request.sandbox
+    if policy is None:return []
+    access={":root":"deny",":minimal":"read",":workspace_roots":"write",
+            ":tmpdir":"write",":slash_tmp":"write",str(Path(sys.prefix).resolve()):"read",str(Path(sys.base_prefix).resolve()):"read"}
+    access.update({str(Path(p).resolve()):"write" for p in policy.write})
+    access.update({str(Path(p).resolve()):"read" for p in policy.read_only})
+    access.update({str(Path(p).resolve()):"deny" for p in policy.deny_read})
+    table="{"+", ".join(json.dumps(k)+" = "+json.dumps(v) for k,v in access.items())+"}"
+    return ["-c",'default_permissions="hillclimb"',"-c",'permissions.hillclimb.extends=":workspace"',
+            "-c","permissions.hillclimb.filesystem="+table,"-c","permissions.hillclimb.network.enabled="+str(bool(request.allow_internet)).lower()]
+
+
 class CodexCliAgent:
     """Run Hillclimb operators through an authenticated local Codex CLI."""
 
@@ -349,19 +368,30 @@ class CodexCliAgent:
             cmd += ["--disable", "multi_agent", "-c", 'web_search="disabled"']
         native = native_model(request.model, self.auth)
         if native is not None:
-            cmd += ["--model", native]
-        if not request.allow_internet:
-            cmd += NO_INTERNET
+            model,sep,effort=request.model.rpartition("#")
+            if sep:
+                if effort not in {"low","medium","high","xhigh","max"}:raise ValueError("Unsupported reasoning effort")
+                cmd += ["--model",model,"-c",'model_reasoning_effort="'+effort+'"']
+            else:cmd += ["--model",native]
+        restricted=permission_args(request)
+        if restricted:
+            cmd += restricted
+            if not request.allow_internet:cmd += ["-c",'web_search="disabled"']
+        else:
+            if not request.allow_internet:cmd += NO_INTERNET
+            cmd += ["--sandbox","workspace-write"]
+        cmd += ["--disable","multi_agent"]
         cmd += [
-            "--sandbox",
-            "workspace-write",
             "--ask-for-approval",
             "never",
             "--cd",
             str(Path(request.candidate_dir).resolve()),
             "exec",
         ]
-        if request.resume_session_id:
+        if restricted:cmd += ["--ignore-user-config"]
+        if request.resume_session_id and request.fork_session:
+            cmd += ["fork","--json","--skip-git-repo-check",request.resume_session_id,"-"]
+        elif request.resume_session_id:
             cmd += [
                 "resume",
                 "--all",

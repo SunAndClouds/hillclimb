@@ -16,7 +16,8 @@ class AgentRequest(BaseModel):
     timeout_s: int
     model: str = "sonnet"
     sampling: dict[str, int | FiniteFloat] | None = None
-    resume_session_id: str | None = None  # set within a debug chain
+    resume_session_id: str | None = None  # parent conversation when supported
+    fork_session: bool = False  # branch instead of mutating the parent
     # False = no internet for the agent: its web tools are off and its whole
     # process tree reaches nothing but its model provider (the sandbox's proxy)
     allow_internet: bool = True

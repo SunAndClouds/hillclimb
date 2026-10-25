@@ -36,7 +36,7 @@ def test_spend_counts_what_the_climber_caused(tmp_path):
     add("c002", "draft", 1, tokens=1000)
     add("c003", "improve", 2, tokens=500)  # one attempt + one tune trial
     add("c004", "draft", 0, tokens=200)    # the agent failed: tokens spent, nothing evaluated
-    assert journal_spend(journal) == Spend(evaluations=5, tokens=1700, cost_usd=1.5)
+    assert journal_spend(journal) == Spend(evaluations=5, tokens=1700, cost_usd=1.5, proposals=3)
 
 
 def test_evaluation_budget_ends_the_search_like_the_clock_does(task, config):

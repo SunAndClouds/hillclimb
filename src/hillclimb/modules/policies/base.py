@@ -109,6 +109,7 @@ class BudgetView:
     stop_margin_s: int
     # what is left of the other budget dimensions; None = the user set no limit
     evaluations_remaining: int | None = None
+    proposals_remaining: int | None = None
     tokens_remaining: int | None = None
     cost_remaining_usd: float | None = None
 

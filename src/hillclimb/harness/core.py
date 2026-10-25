@@ -334,6 +334,7 @@ class Harness:
                 max(0, limits.max_evaluations - spend.evaluations - len(self._inflight))
                 if limits.max_evaluations else None
             ),
+            proposals_remaining=max(0, limits.max_proposals - spend.proposals) if limits.max_proposals else None,
             tokens_remaining=max(0, limits.max_tokens - spend.tokens) if limits.max_tokens else None,
             cost_remaining_usd=(
                 max(0.0, limits.max_cost_usd - spend.cost_usd) if limits.max_cost_usd else None
@@ -393,6 +394,8 @@ class Harness:
         if self.max_candidates is not None and len(self.journal.candidates) >= self.max_candidates:
             return "evaluation cap reached"
         limits = self.config.budget
+        if limits.max_proposals and self.spend().proposals >= limits.max_proposals:
+            return "proposal budget spent"
         if limits.max_evaluations or limits.max_tokens:
             spend = self.spend()
             # work in flight has its evaluation reserved: the cap is never overshot
@@ -799,6 +802,8 @@ class Harness:
                 update=dict(
                     evaluations=spend.evaluations,
                     max_evaluations=limits.max_evaluations,
+                    proposals=spend.proposals,
+                    max_proposals=limits.max_proposals,
                     tokens=spend.tokens,
                     max_tokens=limits.max_tokens,
                 )
@@ -1070,12 +1075,13 @@ class Harness:
                 (Path(self.config.hillclimb_dir or ".") / plugin).resolve()
                 for plugin in self.config.agent_context.claude_plugins
             ],
+            fork_session=bool(prep.fork_session and route.agent == "codex"),
             resume_session_id=(
                 target.agent.session_id
                 if prep.fork_session
-                and route.agent == "pi"
+                and route.agent in {"pi", "codex"}
                 and target is not None
-                and target.agent.name == "pi"
+                and target.agent.name == route.agent
                 else None
             ),
         )

@@ -33,6 +33,8 @@ class BudgetStatus(BaseModel):
     # the other budget dimensions: spent so far / the user's limit (0 = none)
     evaluations: int = 0
     max_evaluations: int = 0
+    proposals: int = 0
+    max_proposals: int = 0
     tokens: int = 0
     max_tokens: int = 0
 

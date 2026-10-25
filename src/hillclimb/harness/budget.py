@@ -26,19 +26,21 @@ class Spend:
     # wall clock, where a reader has the status record beside the journal
     # (a search's result); the harness's own clock is its BudgetManager
     seconds: float | None = None
+    proposals: int = 0
 
 
 def journal_spend(journal: Journal) -> Spend:
-    evaluations = tokens = 0
+    evaluations = tokens = proposals = 0
     cost = subscription = 0.0
     for candidate in journal.candidates.values():
+        proposals += int(candidate.operator not in FLOOR_OPERATORS)
         trials = len(candidate.trials)
         evaluations += max(0, trials - 1) if candidate.operator in FLOOR_OPERATORS else trials
         tokens += candidate.agent.total_tokens or 0
         cost += candidate.agent.cost_usd or 0.0
         if candidate.agent.subscription:
             subscription += candidate.agent.cost_usd or 0.0
-    return Spend(evaluations=evaluations, tokens=tokens, cost_usd=cost, subscription_cost_usd=subscription)
+    return Spend(evaluations=evaluations, tokens=tokens, cost_usd=cost, subscription_cost_usd=subscription, proposals=proposals)
 
 
 # below a cent's hundredth, a cost is nothing to show
@@ -89,11 +91,12 @@ class Budget:
     tokens: int | None = None          # tokens the coding agent calls consume, all kinds summed
     cost_usd: float | None = None      # the coding agents' bill, where the agent reports one
     patience: int | None = None        # finished attempts in a row without a new best before it ends
+    proposals: int | None = None       # program attempts, including failures and work in flight
 
     def __post_init__(self) -> None:
         if self.wall_clock is not None:
             parse_budget(self.wall_clock)  # a budget nobody can read fails here, not at the first search
-        for name in ("evaluations", "tokens", "patience"):
+        for name in ("evaluations", "tokens", "patience", "proposals"):
             value = getattr(self, name)
             if value is not None and (isinstance(value, bool) or not isinstance(value, int) or value < 1):
                 raise ValueError(f"Budget({name}=...) takes a positive whole number, not {value!r}")
@@ -122,6 +125,9 @@ class Budget:
         if self.evaluations is not None:
             config.budget.max_evaluations = self.evaluations
             pairs.append(f"budget.max_evaluations={self.evaluations}")
+        if self.proposals is not None:
+            config.budget.max_proposals = self.proposals
+            pairs.append(f"budget.max_proposals={self.proposals}")
         if self.tokens is not None:
             config.budget.max_tokens = self.tokens
             pairs.append(f"budget.max_tokens={self.tokens}")
@@ -176,7 +182,7 @@ def resolve_budget(explicit: str | int | None, config: Config, *, ask=None) -> i
     if config.budget.total_s is not None:
         return config.budget.total_s
     limits = config.budget
-    if limits.max_evaluations or limits.max_tokens or limits.max_cost_usd:
+    if limits.max_evaluations or limits.max_proposals or limits.max_tokens or limits.max_cost_usd:
         return DEFAULT_BUDGET_S
     if ask is not None and ask(DEFAULT_BUDGET_S):
         return DEFAULT_BUDGET_S
