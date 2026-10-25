@@ -380,7 +380,7 @@ class CodexCliAgent:
         else:
             if not request.allow_internet:cmd += NO_INTERNET
             cmd += ["--sandbox","workspace-write"]
-        cmd += ["--disable","multi_agent"]
+        cmd += ["--disable","multi_agent","--disable","apps","--disable","plugins","--disable","remote_plugin"]
         cmd += [
             "--ask-for-approval",
             "never",
