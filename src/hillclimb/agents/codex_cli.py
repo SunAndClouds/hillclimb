@@ -411,6 +411,14 @@ class CodexCliAgent:
         stderr_path = candidate_dir / "agent_stderr.log"
         raw_path = candidate_dir / "agent_raw.json"
         start = time.monotonic()
+        # The search clock can be much larger than this invocation's allowance.
+        # Expose the actual (possibly end-of-search-clamped) deadline to the model.
+        target=max(15,request.timeout_s-min(60,request.timeout_s//5))
+        budget_context=(f"\n\nRuntime budget: this coding invocation is killed after {request.timeout_s} seconds, including analysis. "
+                        f"Write a runnable solution and send your final response within {target} seconds. "
+                        "Keep backtests targeted; the host independently evaluates the full problem after you return.")
+        prompt=request.prompt+budget_context
+        (candidate_dir/'agent_input.md').write_text(prompt)
         timed_out = False
         aborted = False
         spawn_error = ""
@@ -454,7 +462,7 @@ class CodexCliAgent:
                         )
                         reader.start()
                         try:
-                            proc.stdin.write(request.prompt)
+                            proc.stdin.write(prompt)
                             proc.stdin.close()
                         except BrokenPipeError:
                             pass

@@ -39,7 +39,8 @@ def _isolated_machine(tmp_path: Path, monkeypatch):
 STUB_OK = f"""#!{sys.executable}
 import json, os, sys
 prompt = sys.stdin.read()
-assert prompt == "write code"
+assert prompt.startswith("write code")
+assert "Runtime budget:" in prompt
 assert os.path.exists("agent.pid")
 print(json.dumps({{"type": "thread.started", "thread_id": "thread-123"}}))
 print(json.dumps({{"type": "item.completed", "item": {{"type": "agent_message", "text": "working"}}}}))
