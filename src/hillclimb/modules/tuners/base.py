@@ -14,7 +14,7 @@ names one like any module: `tuner: random`, `tuner: anneal.py`, `tuner: pkg.mod:
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Sequence
 
@@ -32,6 +32,8 @@ class Observation:
     params: dict
     score: float | None
     pending: bool = False
+    # Auxiliary validation objectives for multi-objective tuners. Never holdout.
+    metrics: Mapping[str, float] = field(default_factory=dict)
 
 
 class Tuner:
@@ -72,7 +74,7 @@ def history_for(candidate: "Candidate", pending: Sequence[dict] = ()) -> list[Ob
     """The candidate's committed trials in index order, then the in-flight
     parameter sets."""
     observations = [
-        Observation(params=dict(trial.params), score=trial.val_score)
+        Observation(params=dict(trial.params), score=trial.val_score, metrics=dict(trial.metrics))
         for trial in sorted(candidate.trials, key=lambda t: t.index)
     ]
     observations.extend(Observation(params=dict(p), score=None, pending=True) for p in pending)
